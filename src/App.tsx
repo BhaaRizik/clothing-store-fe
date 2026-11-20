@@ -5,7 +5,7 @@ function App() {
   const [error, setError] = useState<string>('')
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/greeting')
+    fetch(`${import.meta.env.VITE_API_BASE_URL}/api/greeting`)
       .then((res) => res.json())
       .then((data) => setGreeting(data.message))
       .catch(() => setError('Could not reach backend'))
