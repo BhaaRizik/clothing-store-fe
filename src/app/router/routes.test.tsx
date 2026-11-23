@@ -6,6 +6,7 @@ import { ThemeProvider } from 'styled-components'
 import { describe, expect, it, vi } from 'vitest'
 import { getProducts } from '@/features/catalog/api/productApi'
 import { getCategories, getCategory } from '@/features/categories/api/categoryApi'
+import { getPromotions } from '@/features/home/api/promotionApi'
 import { getProductDetails } from '@/features/product-details/api/productDetailsApi'
 import { theme } from '@/shared/theme/theme'
 import { countH1, ils, makeCategory, notFound } from '@/test/fixtures'
@@ -15,6 +16,7 @@ import { routes } from './routes'
 vi.mock('@/features/categories/api/categoryApi')
 vi.mock('@/features/catalog/api/productApi')
 vi.mock('@/features/product-details/api/productDetailsApi')
+vi.mock('@/features/home/api/promotionApi')
 
 /** Renders the real route table (layout, lazy feature routes, not-found). */
 function renderApp(url: string) {
@@ -44,15 +46,20 @@ const productDetails = {
 }
 
 describe('app routes', () => {
-  it('renders the layout and welcome page with a link to categories', async () => {
+  it('renders the layout and the homepage at /', async () => {
+    vi.mocked(getPromotions).mockResolvedValue([])
+    vi.mocked(getCategories).mockResolvedValue([makeCategory()])
+    vi.mocked(getProducts).mockResolvedValue(productPage(makeProducts(1, 1), 0, 1, 8))
     renderApp('/')
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Welcome to Clothing Store' })).toBeInTheDocument()
-    expect(countH1()).toBe(1)
     expect(screen.getByRole('link', { name: 'Clothing Store' })).toHaveAttribute('href', '/')
     const nav = screen.getByRole('navigation', { name: 'Main' })
     expect(nav).toContainElement(screen.getByRole('link', { name: 'Categories' }))
-    expect(screen.getByRole('link', { name: 'Browse categories' })).toHaveAttribute('href', '/categories')
+    expect(await screen.findByRole('link', { name: 'Women' })).toHaveAttribute('href', '/categories/women')
+    expect(await screen.findByRole('link', { name: 'Product 1' })).toHaveAttribute('href', '/products/product-1')
+    expect(screen.getByRole('link', { name: 'View all categories' })).toHaveAttribute('href', '/categories')
+    expect(countH1()).toBe(1)
   })
 
   it('renders the category list at /categories', async () => {

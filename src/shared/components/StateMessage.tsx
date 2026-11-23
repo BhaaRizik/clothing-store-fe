@@ -38,9 +38,9 @@ export type StateMessageProps = {
   role?: 'alert' | 'status'
   /**
    * Heading level of the title. Use 'h1' when the message replaces the whole page
-   * (not-found / page-level error) so every screen has exactly one h1.
+   * (not-found / page-level error) so every screen has exactly one h1; 'h3' inside a section with its own h2.
    */
-  titleAs?: 'h1' | 'h2'
+  titleAs?: 'h1' | 'h2' | 'h3'
 }
 
 /** Generic empty / not-found / error message block with optional next actions. */

@@ -33,7 +33,7 @@ npm run dev        # http://localhost:5173
 ## Routes
 | Path | Page |
 |---|---|
-| `/` | Temporary welcome page (real homepage: SCRUM-14) |
+| `/` | Storefront homepage: promotions, category highlights, featured products |
 | `/categories` | Category list |
 | `/categories/:slug` | Product listing for a category ("Load more" pagination, 20 per page, newest first) |
 | `/products/:slug` | Product details (read-only) |

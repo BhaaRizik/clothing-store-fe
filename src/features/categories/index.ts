@@ -1,3 +1,5 @@
 export { CategoryListPage } from './pages/CategoryListPage'
+export { CategoryCard } from './components/CategoryCard'
+export { useCategories } from './hooks/useCategories'
 export { useCategory } from './hooks/useCategory'
 export type { CategoryResponse } from './types/category'

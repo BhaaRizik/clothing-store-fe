@@ -3,7 +3,6 @@ import { LoadingState } from '@/shared/components/LoadingState'
 import { RootLayout } from '../layouts/RootLayout'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { RouteErrorPage } from '../pages/RouteErrorPage'
-import { WelcomePage } from '../pages/WelcomePage'
 
 export const routes: RouteObject[] = [
   {
@@ -15,7 +14,10 @@ export const routes: RouteObject[] = [
         // Pathless boundary keeps the header/footer visible when a page fails.
         errorElement: <RouteErrorPage />,
         children: [
-          { index: true, Component: WelcomePage },
+          {
+            index: true,
+            lazy: async () => ({ Component: (await import('@/features/home')).HomePage }),
+          },
           {
             path: 'categories',
             lazy: async () => ({ Component: (await import('@/features/categories')).CategoryListPage }),
