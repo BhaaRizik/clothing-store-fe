@@ -53,9 +53,11 @@ const Description = styled.p`
 
 type CategoryCardProps = {
   category: CategoryResponse
+  /** Heading level of the name: 'h2' on the category list page, 'h3' inside a page section with its own h2. */
+  titleAs?: 'h2' | 'h3'
 }
 
-export function CategoryCard({ category }: CategoryCardProps) {
+export function CategoryCard({ category, titleAs = 'h2' }: CategoryCardProps) {
   return (
     <Card>
       <ImageWithFallback
@@ -64,7 +66,7 @@ export function CategoryCard({ category }: CategoryCardProps) {
         fallbackLabel={`No image available for ${category.name}`}
         aspectRatio="4 / 3"
       />
-      <Name>
+      <Name as={titleAs}>
         <CardLink to={`/categories/${encodeURIComponent(category.slug)}`}>{category.name}</CardLink>
       </Name>
       {category.description && <Description>{category.description}</Description>}
