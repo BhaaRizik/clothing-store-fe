@@ -11,6 +11,8 @@ export function useProductDetails(slug: string) {
     queryKey: productDetailsKeys.detail(slug),
     queryFn: () => getProductDetails(slug),
     enabled: slug.length > 0,
-    staleTime: 60_000,
+    // Variant availability must reflect current stock: refetch on every mount and on window focus.
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   })
 }

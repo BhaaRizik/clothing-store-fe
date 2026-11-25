@@ -43,6 +43,7 @@ const productDetails = {
   price: ils('50.00'),
   salePrice: null,
   category: { slug: 'women', name: 'Women' },
+  variants: [],
 }
 
 describe('app routes', () => {

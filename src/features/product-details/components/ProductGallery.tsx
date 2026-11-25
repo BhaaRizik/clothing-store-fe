@@ -32,14 +32,22 @@ const ThumbButton = styled.button`
   }
 `
 
+function thumbnailLabel(image: ImageRef, index: number, count: number) {
+  const label = `Show image ${index + 1} of ${count}`
+  const alt = image.alt?.trim()
+  return alt ? `${label}: ${alt}` : label
+}
+
 type ProductGalleryProps = {
   images: ImageRef[]
   productName: string
 }
 
 export function ProductGallery({ images, productName }: ProductGalleryProps) {
-  const [selectedIndex, setSelectedIndex] = useState(0)
-  const selected = images[selectedIndex] ?? images[0]
+  const [chosenIndex, setChosenIndex] = useState(0)
+  // A refetch can shrink the list; fall back to the first image so the main image and pressed thumbnail agree.
+  const selectedIndex = chosenIndex < images.length ? chosenIndex : 0
+  const selected = images[selectedIndex]
 
   return (
     <Wrapper>
@@ -56,8 +64,8 @@ export function ProductGallery({ images, productName }: ProductGalleryProps) {
               <ThumbButton
                 type="button"
                 aria-pressed={index === selectedIndex}
-                aria-label={`Show image ${index + 1} of ${images.length}`}
-                onClick={() => setSelectedIndex(index)}
+                aria-label={thumbnailLabel(image, index, images.length)}
+                onClick={() => setChosenIndex(index)}
               >
                 <ImageWithFallback src={image.url} alt="" fallbackLabel="Image unavailable" aspectRatio="1 / 1" />
               </ThumbButton>
