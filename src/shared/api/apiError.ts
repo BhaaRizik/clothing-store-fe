@@ -10,6 +10,7 @@ type ApiErrorInit = {
   code: string
   message: string
   fieldErrors?: ApiFieldError[]
+  extensions?: Record<string, unknown>
 }
 
 /**
@@ -21,13 +22,16 @@ export class ApiError extends Error {
   readonly status: number
   readonly code: string
   readonly fieldErrors: ApiFieldError[]
+  /** Non-standard ProblemDetail members (RFC 9457 extensions), e.g. `maxItemQuantity`. */
+  readonly extensions: Readonly<Record<string, unknown>>
 
-  constructor({ status, code, message, fieldErrors = [] }: ApiErrorInit) {
+  constructor({ status, code, message, fieldErrors = [], extensions = {} }: ApiErrorInit) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.fieldErrors = fieldErrors
+    this.extensions = extensions
   }
 }
 
@@ -40,6 +44,11 @@ type ProblemDetail = {
   code?: unknown
   errors?: unknown
 }
+
+const STANDARD_MEMBERS = new Set(['type', 'title', 'status', 'detail', 'instance', 'code', 'errors'])
+
+const toExtensions = (problem: object): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(problem).filter(([key]) => !STANDARD_MEMBERS.has(key)))
 
 const asString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.length > 0 ? value : undefined
@@ -65,6 +74,7 @@ export function toApiError(error: unknown): ApiError {
         code: asString(problem.code) ?? `HTTP_${status}`,
         message: asString(problem.detail) ?? asString(problem.title) ?? `Request failed with status ${status}.`,
         fieldErrors: toFieldErrors(problem.errors),
+        extensions: toExtensions(problem),
       })
     }
     if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {

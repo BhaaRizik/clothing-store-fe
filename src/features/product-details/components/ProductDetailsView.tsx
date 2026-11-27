@@ -6,6 +6,7 @@ import { media } from '@/shared/theme/theme'
 import { useVariantSelection } from '../hooks/useVariantSelection'
 import type { ProductDetailsResponse } from '../types/productDetails'
 import { imagesForColor } from '../utils/imagesForColor'
+import { AddToCartPanel } from './AddToCartPanel'
 import { ProductGallery } from './ProductGallery'
 import { ProductVariantOptions } from './ProductVariantOptions'
 
@@ -94,7 +95,10 @@ export function ProductDetailsView({ product }: ProductDetailsViewProps) {
           {soldOut && <StockBadge>Out of stock</StockBadge>}
         </PriceRow>
         {product.variants.length > 0 ? (
-          <ProductVariantOptions selection={selection} />
+          <>
+            <ProductVariantOptions selection={selection} />
+            <AddToCartPanel selection={selection} />
+          </>
         ) : (
           <Unavailable>Currently unavailable</Unavailable>
         )}

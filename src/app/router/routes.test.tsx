@@ -4,11 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { ThemeProvider } from 'styled-components'
 import { describe, expect, it, vi } from 'vitest'
+import { getCart } from '@/features/cart/api/cartApi'
+import { writeCartId } from '@/features/cart/utils/cartIdStorage'
 import { getProducts } from '@/features/catalog/api/productApi'
 import { getCategories, getCategory } from '@/features/categories/api/categoryApi'
 import { getPromotions } from '@/features/home/api/promotionApi'
 import { getProductDetails } from '@/features/product-details/api/productDetailsApi'
 import { theme } from '@/shared/theme/theme'
+import { CART_ID, makeCart, makeCartItem } from '@/test/cart'
 import { countH1, ils, makeCategory, notFound } from '@/test/fixtures'
 import { makeProducts, productPage } from '@/test/products'
 import { routes } from './routes'
@@ -17,6 +20,7 @@ vi.mock('@/features/categories/api/categoryApi')
 vi.mock('@/features/catalog/api/productApi')
 vi.mock('@/features/product-details/api/productDetailsApi')
 vi.mock('@/features/home/api/promotionApi')
+vi.mock('@/features/cart/api/cartApi')
 
 /** Renders the real route table (layout, lazy feature routes, not-found). */
 function renderApp(url: string) {
@@ -57,6 +61,8 @@ describe('app routes', () => {
     expect(screen.getByRole('link', { name: 'Clothing Store' })).toHaveAttribute('href', '/')
     const nav = screen.getByRole('navigation', { name: 'Main' })
     expect(nav).toContainElement(screen.getByRole('link', { name: 'Categories' }))
+    expect(nav).toContainElement(screen.getByRole('link', { name: 'Cart' }))
+    expect(getCart).not.toHaveBeenCalled()
     expect(await screen.findByRole('link', { name: 'Women' })).toHaveAttribute('href', '/categories/women')
     expect(await screen.findByRole('link', { name: 'Product 1' })).toHaveAttribute('href', '/products/product-1')
     expect(screen.getByRole('link', { name: 'View all categories' })).toHaveAttribute('href', '/categories')
@@ -90,6 +96,27 @@ describe('app routes', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Product 1' })).toBeInTheDocument()
     expect(getProductDetails).toHaveBeenCalledWith('product-1')
+    expect(countH1()).toBe(1)
+  })
+
+  it('renders the cart at /cart with the item count in the header', async () => {
+    writeCartId(CART_ID)
+    vi.mocked(getCart).mockResolvedValue(makeCart({ items: [makeCartItem()], itemCount: 2 }))
+    renderApp('/cart')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your cart' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Linen Shirt' })).toBeInTheDocument()
+    const cartLink = screen.getByRole('link', { name: 'Cart, 2 items' })
+    expect(cartLink).toHaveAttribute('href', '/cart')
+    expect(cartLink).toHaveAttribute('aria-current', 'page')
+    expect(countH1()).toBe(1)
+  })
+
+  it('renders the empty cart at /cart without requests when there is no cart', async () => {
+    renderApp('/cart')
+
+    expect(await screen.findByRole('heading', { name: 'Your cart is empty' })).toBeInTheDocument()
+    expect(getCart).not.toHaveBeenCalled()
     expect(countH1()).toBe(1)
   })
 

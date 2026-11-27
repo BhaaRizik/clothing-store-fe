@@ -10,4 +10,6 @@ afterEach(() => {
   cleanup()
   // Reset implementations too, so no test depends on stubs left over from another test.
   vi.resetAllMocks()
+  // The cart id is persisted in localStorage; no test may inherit another test's cart.
+  localStorage.clear()
 })

@@ -36,7 +36,8 @@ npm run dev        # http://localhost:5173
 | `/` | Storefront homepage: promotions, category highlights, featured products |
 | `/categories` | Category list |
 | `/categories/:slug` | Product listing for a category ("Load more" pagination, 20 per page, newest first) |
-| `/products/:slug` | Product details (read-only) |
+| `/products/:slug` | Product details: variant selection, quantity and "Add to cart" |
+| `/cart` | Shopping cart: lines, quantity update, remove, backend subtotal |
 | `*` | Not found |
 
 ## Project structure (feature-first)
@@ -47,15 +48,20 @@ src/
   features/
     categories/       category list + category API/hooks
     catalog/          category product listing, ProductCard
-    product-details/  product details page
+    product-details/  product details page (uses the cart feature's public API for add to cart)
+    cart/             cart API/hooks, header CartLink, QuantityStepper, cart page
   test/         Vitest setup and test helpers
 ```
 - Each feature exposes its public API through `index.ts`; other code must not import a feature's internals.
 - `shared/` contains only generic, feature-agnostic code.
 - Import alias: `@/` → `src/`.
+- Exception: `features/cart/pages.ts` is the cart's route entry, imported only lazily by the router, so the always-loaded header (`CartLink` from `features/cart/index.ts`) doesn't pull the cart page into the main chunk.
 
 ## API
 All requests go through `src/shared/api/httpClient.ts` (`${VITE_API_BASE_URL}/api/v1`). Errors (`application/problem+json`) are normalized to `ApiError { status, code, message, fieldErrors }`. The backend is authoritative for prices and which items are active; the frontend only displays them.
+
+### Cart
+The guest cart id (server-generated) is kept in `localStorage` under `clothing-store.cartId` (in-memory fallback when storage is blocked) and sent as the `X-Cart-Id` header. Without an id no cart request is made; the first "Add to cart" creates the cart (`POST /cart`). An unknown/expired id (`CART_NOT_FOUND`) is dropped and treated as an empty cart (on add, a new cart is created and the add retried once). Mutations write the returned `CartResponse` into the query cache; quantities, line totals and the subtotal are always the server's values.
 
 ## Testing
 Tests live next to the code (`*.test.ts(x)`), run in jsdom, and mock the feature API modules with `vi.mock` — no real network calls.
