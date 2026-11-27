@@ -93,3 +93,14 @@ export function toApiError(error: unknown): ApiError {
 export const isApiError = (error: unknown): error is ApiError => error instanceof ApiError
 
 export const isNotFoundError = (error: unknown): boolean => isApiError(error) && error.status === 404
+
+/**
+ * The requested resource does not exist: a 404, or a 400 VALIDATION_ERROR rejecting one of `fields` as malformed
+ * (the backend answers a malformed slug such as `/products/Bad_Slug` with 400 on field `slug`).
+ */
+export const isUnknownResourceError = (error: unknown, fields: readonly string[] = ['slug']): boolean =>
+  isNotFoundError(error) ||
+  (isApiError(error) &&
+    error.status === 400 &&
+    error.code === 'VALIDATION_ERROR' &&
+    error.fieldErrors.some((fieldError) => fields.includes(fieldError.field)))

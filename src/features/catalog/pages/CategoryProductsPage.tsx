@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { Link, useParams } from 'react-router'
 import styled from 'styled-components'
 import { useCategory } from '@/features/categories'
-import { isNotFoundError } from '@/shared/api/apiError'
+import { isUnknownResourceError } from '@/shared/api/apiError'
 import { describeError } from '@/shared/api/errorCopy'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
@@ -87,7 +87,7 @@ function ProductsSection({ categorySlug }: ProductsSectionProps) {
 
   if (!products.data) {
     // The category can disappear between the two requests; the page header already has the h1.
-    if (isNotFoundError(products.error)) return <CategoryNotFound titleAs="h2" />
+    if (isUnknownResourceError(products.error, ['category'])) return <CategoryNotFound titleAs="h2" />
     if (products.isError) {
       return (
         <ErrorState
@@ -156,7 +156,7 @@ export function CategoryProductsPage() {
 
   // Not-found / error only when nothing was loaded; a failed background refetch keeps the content.
   if (!category.data) {
-    if (isNotFoundError(category.error)) return <CategoryNotFound titleAs="h1" />
+    if (isUnknownResourceError(category.error)) return <CategoryNotFound titleAs="h1" />
     if (category.isError) {
       return (
         <ErrorState

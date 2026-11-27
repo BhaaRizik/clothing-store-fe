@@ -3,6 +3,7 @@ import { AxiosError, AxiosHeaders, type AxiosAdapter, type AxiosResponse, type I
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { CartPage } from '@/features/cart/pages/CartPage'
 import { writeCartId } from '@/features/cart/utils/cartIdStorage'
+import { CategoryProductsPage } from '@/features/catalog/pages/CategoryProductsPage'
 import { CategoryListPage } from '@/features/categories/pages/CategoryListPage'
 import { ProductDetailsPage } from '@/features/product-details/pages/ProductDetailsPage'
 import { httpClient } from '@/shared/api/httpClient'
@@ -46,6 +47,9 @@ const BACKEND = {
     'Not enough stock is available for the requested quantity.',
     'INSUFFICIENT_STOCK',
   ),
+  malformedSlug: problem(400, 'Validation failed', 'One or more request parameters are invalid.', 'VALIDATION_ERROR', {
+    errors: [{ field: 'slug', message: 'must be a lowercase kebab-case slug of at most 200 characters' }],
+  }),
   quantityOutOfRange: problem(400, 'Validation failed', 'One or more request parameters are invalid.', 'VALIDATION_ERROR', {
     errors: [{ field: 'quantity', message: 'Quantity must be between 1 and 10.' }],
   }),
@@ -134,6 +138,17 @@ describe('SCRUM-42 error feedback with real backend error responses', () => {
       expect(await screen.findByRole('heading', { level: 1, name: 'Product not found' })).toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
     })
+  })
+
+  it.each([
+    ['product', '/products/Bad_Slug', <ProductDetailsPage key="p" />, '/products/:slug', 'Product not found'],
+    ['category', '/categories/Bad_Slug', <CategoryProductsPage key="c" />, '/categories/:slug', 'Category not found'],
+  ])('shows the %s not-found page for the backend 400 on a malformed slug', async (_label, url, page, path, heading) => {
+    respond({ method: 'GET', url, replies: [{ status: 400, body: BACKEND.malformedSlug }] })
+    renderRoute(page, { path, url })
+
+    expect(await screen.findByRole('heading', { level: 1, name: heading })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
   })
 
   describe('cart changes', () => {

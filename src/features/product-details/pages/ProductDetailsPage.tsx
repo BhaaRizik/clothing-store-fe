@@ -1,5 +1,5 @@
 import { useParams } from 'react-router'
-import { isNotFoundError } from '@/shared/api/apiError'
+import { isUnknownResourceError } from '@/shared/api/apiError'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { RefreshErrorNotice } from '@/shared/components/RefreshErrorNotice'
@@ -14,7 +14,7 @@ export function ProductDetailsPage() {
 
   // Not-found / error only when nothing was loaded; a failed background refetch keeps the content.
   if (!product) {
-    if (isNotFoundError(error)) {
+    if (isUnknownResourceError(error)) {
       return (
         <>
           <title>Product not found | Clothing Store</title>
