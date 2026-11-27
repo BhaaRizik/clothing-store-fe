@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { Link, NavLink, Outlet, ScrollRestoration, useLocation } from 'react-router'
 import styled from 'styled-components'
+import { CartLink } from '@/features/cart'
 import { media } from '@/shared/theme/theme'
 
 const STORE_NAME = 'Clothing Store'
@@ -59,6 +60,7 @@ const Brand = styled(Link)`
 
 const NavList = styled.ul`
   display: flex;
+  align-items: center;
   gap: ${({ theme }) => theme.space.lg};
   list-style: none;
   margin: 0;
@@ -121,6 +123,9 @@ export function RootLayout() {
             <NavList>
               <li>
                 <NavItem to="/categories">Categories</NavItem>
+              </li>
+              <li>
+                <CartLink />
               </li>
             </NavList>
           </nav>

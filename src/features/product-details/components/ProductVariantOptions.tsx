@@ -1,6 +1,7 @@
 import styled, { css } from 'styled-components'
 import type { VariantDimension, VariantSelection } from '../hooks/useVariantSelection'
 import type { ProductVariant } from '../types/productDetails'
+import { missingSelectionMessage } from '../utils/missingSelectionMessage'
 import { VariantSelector } from './VariantSelector'
 
 const Section = styled.section`
@@ -32,15 +33,9 @@ const Status = styled.p<{ $tone: Tone }>`
     `}
 `
 
-const MISSING_MESSAGES: Record<VariantDimension, string> = {
-  color: 'Select a color',
-  size: 'Select a size',
-}
-
 function statusFor(missing: VariantDimension[], variant: ProductVariant | null): { tone: Tone; message: string } {
-  if (missing.length > 1) return { tone: 'hint', message: 'Select a color and size' }
-  const [first] = missing
-  if (first) return { tone: 'hint', message: MISSING_MESSAGES[first] }
+  const missingMessage = missingSelectionMessage(missing)
+  if (missingMessage) return { tone: 'hint', message: missingMessage }
   if (variant?.available) return { tone: 'inStock', message: 'In stock' }
   return { tone: 'outOfStock', message: variant ? 'Out of stock' : 'Currently unavailable' }
 }

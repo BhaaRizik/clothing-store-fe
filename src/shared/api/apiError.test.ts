@@ -37,6 +37,20 @@ describe('toApiError', () => {
     expect(error.fieldErrors).toEqual([{ field: 'size', message: 'must be less than or equal to 100' }])
   })
 
+  it('exposes non-standard problem members as extensions', () => {
+    const error = toApiError(
+      axiosErrorWithResponse(409, {
+        title: 'Conflict',
+        status: 409,
+        code: 'CART_ITEM_LIMIT_EXCEEDED',
+        instance: '/api/v1/cart/items',
+        maxItemQuantity: 10,
+      }),
+    )
+    expect(error.code).toBe('CART_ITEM_LIMIT_EXCEEDED')
+    expect(error.extensions).toEqual({ maxItemQuantity: 10 })
+  })
+
   it('falls back to an HTTP code when the body is not problem details', () => {
     expect(toApiError(axiosErrorWithResponse(502, '<html>'))).toMatchObject({ status: 502, code: 'HTTP_502' })
   })

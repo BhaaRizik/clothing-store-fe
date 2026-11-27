@@ -1,6 +1,10 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { countH1, ils, notFound, serverError } from '@/test/fixtures'
+import { addCartItem, createCart, getCart } from '@/features/cart/api/cartApi'
+import { writeCartId } from '@/features/cart/utils/cartIdStorage'
+import { CART_ID, cartError, makeCart, makeCartItem } from '@/test/cart'
+import { ApiError } from '@/shared/api/apiError'
+import { countH1, deferred, ils, notFound, serverError } from '@/test/fixtures'
 import { renderRoute } from '@/test/renderRoute'
 import { variant } from '@/test/variants'
 import { getProductDetails } from '../api/productDetailsApi'
@@ -8,6 +12,7 @@ import type { ProductDetailsResponse } from '../types/productDetails'
 import { ProductDetailsPage } from './ProductDetailsPage'
 
 vi.mock('../api/productDetailsApi')
+vi.mock('@/features/cart/api/cartApi')
 
 function makeDetails(overrides: Partial<ProductDetailsResponse> = {}): ProductDetailsResponse {
   return {
@@ -192,13 +197,14 @@ describe('ProductDetailsPage', () => {
       expect(availability()).toHaveTextContent('Select a color and size')
     })
   
-    it('offers no add-to-cart or buy control (the cart arrives with SCRUM-24)', async () => {
+    it('offers an add-to-cart control but no buy or checkout control', async () => {
       vi.mocked(getProductDetails).mockResolvedValue(makeDetails({ variants: [variant('v1', 'Navy', 'S')] }))
       renderPage()
 
       expect(await screen.findByRole('radio', { name: 'Navy' })).toBeChecked()
       expect(availability()).toHaveTextContent('In stock')
-      expect(screen.queryByRole('button', { name: /add to (cart|bag)|buy|purchase|checkout/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Add to cart' })).toBeEnabled()
+      expect(screen.queryByRole('button', { name: /buy|purchase|checkout/i })).not.toBeInTheDocument()
     })
 
     it('updates the availability of the selected variant after a refetch while keeping the selection', async () => {
@@ -216,6 +222,157 @@ describe('ProductDetailsPage', () => {
       expect(screen.getByRole('radio', { name: 'Navy (out of stock)' })).toBeChecked()
       expect(screen.getByRole('radio', { name: 'S (out of stock)' })).toBeChecked()
       expect(getProductDetails).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('add to cart', () => {
+    const availability = () => within(screen.getByRole('region', { name: 'Product options' })).getByRole('status')
+    const addButton = () => screen.getByRole('button', { name: 'Add to cart' })
+    const quantity = () => screen.getByRole('group', { name: 'Quantity' })
+    const addedCart = makeCart({ items: [makeCartItem({ variantId: 'v3', quantity: 2 })], itemCount: 2 })
+
+    async function renderReady() {
+      vi.mocked(getProductDetails).mockResolvedValue(makeDetails())
+      const result = renderPage()
+      await screen.findByRole('heading', { level: 1, name: 'Linen Shirt' })
+      return result
+    }
+
+    it('shows the missing-selection message and sends no request when an option is missing', async () => {
+      const { user } = await renderReady()
+
+      await user.click(addButton())
+      expect(screen.getByRole('alert')).toHaveTextContent('Select a color and size')
+
+      await user.click(screen.getByRole('radio', { name: 'White' }))
+      expect(screen.getByRole('alert')).toHaveTextContent('Select a size')
+      await user.click(addButton())
+
+      expect(createCart).not.toHaveBeenCalled()
+      expect(addCartItem).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('radio', { name: 'M' }))
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    })
+
+    it('adds the selected variant and quantity, then confirms with a View cart link', async () => {
+      vi.mocked(createCart).mockResolvedValue(makeCart())
+      vi.mocked(addCartItem).mockResolvedValue(addedCart)
+      vi.mocked(getCart).mockResolvedValue(addedCart)
+      const { user } = await renderReady()
+
+      await user.click(screen.getByRole('radio', { name: 'White' }))
+      await user.click(screen.getByRole('radio', { name: 'M' }))
+      expect(quantity()).toHaveTextContent('1')
+      expect(within(quantity()).getByRole('button', { name: 'Decrease quantity' })).toHaveAttribute('aria-disabled', 'true')
+      await user.click(within(quantity()).getByRole('button', { name: 'Increase quantity' }))
+      await user.click(addButton())
+
+      expect(addCartItem).toHaveBeenCalledWith(CART_ID, { variantId: 'v3', quantity: 2 })
+      const status = await screen.findByText('Added to cart')
+      expect(status.closest('[role="status"]')).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: 'View cart' })).toHaveAttribute('href', '/cart')
+      expect(screen.getByRole('radio', { name: 'White' })).toBeChecked()
+    })
+
+    it('is busy while the request is pending and ignores repeated clicks', async () => {
+      writeCartId(CART_ID)
+      vi.mocked(getCart).mockResolvedValue(makeCart())
+      const pending = deferred<ReturnType<typeof makeCart>>()
+      vi.mocked(addCartItem).mockReturnValue(pending.promise)
+      const { user } = await renderReady()
+      await user.click(screen.getByRole('radio', { name: 'White' }))
+      await user.click(screen.getByRole('radio', { name: 'M' }))
+
+      await user.click(addButton())
+      await user.click(addButton())
+
+      expect(addButton()).toHaveAttribute('aria-busy', 'true')
+      expect(addButton()).toHaveAttribute('aria-disabled', 'true')
+      expect(screen.getByText('Adding to cart…')).toBeInTheDocument()
+      expect(addCartItem).toHaveBeenCalledTimes(1)
+      pending.resolve(addedCart)
+      expect(await screen.findByText('Added to cart')).toBeInTheDocument()
+    })
+
+    it.each([
+      [cartError(409, 'INSUFFICIENT_STOCK'), 'Not enough stock is available for the selected quantity.'],
+      [cartError(409, 'VARIANT_UNAVAILABLE'), 'This option is no longer available.'],
+      [cartError(409, 'CART_ITEM_LIMIT_EXCEEDED', { maxItemQuantity: 10 }), 'You can have up to 10 of this item in your cart.'],
+      [cartError(409, 'CART_CONFLICT'), 'Your cart was updated at the same time. Please try again.'],
+      [
+        new ApiError({
+          status: 400,
+          code: 'VALIDATION_ERROR',
+          message: 'Bad Request',
+          fieldErrors: [{ field: 'quantity', message: 'Quantity must be between 1 and 10.' }],
+        }),
+        'Quantity must be between 1 and 10.',
+      ],
+    ])('shows an error and keeps the selection when the add fails (%s)', async (error, message) => {
+      writeCartId(CART_ID)
+      vi.mocked(getCart).mockResolvedValue(makeCart())
+      vi.mocked(addCartItem).mockRejectedValue(error)
+      const { user } = await renderReady()
+      await user.click(screen.getByRole('radio', { name: 'White' }))
+      await user.click(screen.getByRole('radio', { name: 'M' }))
+
+      await user.click(addButton())
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(message)
+      expect(screen.getByRole('radio', { name: 'White' })).toBeChecked()
+      expect(screen.getByRole('radio', { name: 'M' })).toBeChecked()
+      expect(screen.queryByText('Added to cart')).not.toBeInTheDocument()
+    })
+
+    it("shows the backend's quantity message when a first add exceeds the limit (no cart yet, so no max)", async () => {
+      vi.mocked(createCart).mockResolvedValue(makeCart())
+      vi.mocked(getCart).mockResolvedValue(makeCart())
+      vi.mocked(addCartItem).mockRejectedValue(
+        new ApiError({
+          status: 400,
+          code: 'VALIDATION_ERROR',
+          message: 'Bad Request',
+          fieldErrors: [{ field: 'quantity', message: 'Quantity must be between 1 and 10.' }],
+        }),
+      )
+      const { user } = await renderReady()
+      await user.click(screen.getByRole('radio', { name: 'White' }))
+      await user.click(screen.getByRole('radio', { name: 'M' }))
+      const increase = within(quantity()).getByRole('button', { name: 'Increase quantity' })
+      for (let i = 0; i < 10; i += 1) await user.click(increase)
+      expect(quantity()).toHaveTextContent('11')
+      expect(increase).toHaveAttribute('aria-disabled', 'false')
+
+      await user.click(addButton())
+
+      expect(addCartItem).toHaveBeenCalledWith(CART_ID, { variantId: 'v3', quantity: 11 })
+      expect(await screen.findByRole('alert')).toHaveTextContent('Quantity must be between 1 and 10.')
+      // The failed add created the cart, so its maximum is now known and the quantity is capped.
+      await waitFor(() => expect(quantity()).toHaveTextContent('10'))
+      expect(increase).toHaveAttribute('aria-disabled', 'true')
+    })
+
+    it('limits the quantity to the cart maximum', async () => {
+      writeCartId(CART_ID)
+      vi.mocked(getCart).mockResolvedValue(makeCart({ maxItemQuantity: 2 }))
+      const { user } = await renderReady()
+      await waitFor(() => expect(getCart).toHaveBeenCalled())
+
+      const increase = within(quantity()).getByRole('button', { name: 'Increase quantity' })
+      await user.click(increase)
+      await waitFor(() => expect(increase).toHaveAttribute('aria-disabled', 'true'))
+      expect(quantity()).toHaveTextContent('2')
+    })
+
+    it('disables the button for an out-of-stock variant', async () => {
+      const { user } = await renderReady()
+
+      await user.click(screen.getByRole('radio', { name: 'Navy' }))
+      await user.click(screen.getByRole('radio', { name: 'M (out of stock)' }))
+
+      expect(availability()).toHaveTextContent('Out of stock')
+      expect(addButton()).toBeDisabled()
     })
   })
 
