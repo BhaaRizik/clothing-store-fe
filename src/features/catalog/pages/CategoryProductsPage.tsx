@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router'
 import styled from 'styled-components'
 import { useCategory } from '@/features/categories'
 import { isNotFoundError } from '@/shared/api/apiError'
+import { describeError } from '@/shared/api/errorCopy'
 import { ErrorState } from '@/shared/components/ErrorState'
 import { LoadingState } from '@/shared/components/LoadingState'
 import { RefreshErrorNotice } from '@/shared/components/RefreshErrorNotice'
@@ -88,7 +89,13 @@ function ProductsSection({ categorySlug }: ProductsSectionProps) {
     // The category can disappear between the two requests; the page header already has the h1.
     if (isNotFoundError(products.error)) return <CategoryNotFound titleAs="h2" />
     if (products.isError) {
-      return <ErrorState title="We couldn't load the products" onRetry={() => void products.refetch()} />
+      return (
+        <ErrorState
+          title="We couldn't load the products"
+          error={products.error}
+          onRetry={() => void products.refetch()}
+        />
+      )
     }
     return <LoadingState label="Loading products" />
   }
@@ -130,7 +137,9 @@ function ProductsSection({ categorySlug }: ProductsSectionProps) {
         ))}
       </ResponsiveGrid>
       <LoadMoreArea>
-        {products.isFetchNextPageError && <p role="alert">We couldn't load more products. Please try again.</p>}
+        {products.isFetchNextPageError && (
+          <p role="alert">We couldn't load more products. {describeError(products.error).description}</p>
+        )}
         {products.hasNextPage && (
           <Button variant="secondary" onClick={loadMore} aria-disabled={products.isFetchingNextPage}>
             {products.isFetchingNextPage ? 'Loading…' : 'Load more'}
@@ -153,6 +162,7 @@ export function CategoryProductsPage() {
         <ErrorState
           titleAs="h1"
           title="We couldn't load this category"
+          error={category.error}
           onRetry={() => void category.refetch()}
         />
       )

@@ -37,12 +37,12 @@ const Lines = styled.ul`
 `
 
 export function CartPage() {
-  const { cart, isLoading, isError, isRefetchError, refetch } = useCart()
+  const { cart, error, isLoading, isError, isRefetchError, refetch } = useCart()
   const titleRef = useRef<HTMLHeadingElement>(null)
 
   if (isLoading) return <LoadingState label="Loading cart" />
   if (!cart && isError) {
-    return <ErrorState titleAs="h1" title="We couldn't load your cart" onRetry={() => void refetch()} />
+    return <ErrorState titleAs="h1" title="We couldn't load your cart" error={error} onRetry={() => void refetch()} />
   }
 
   const empty = !cart || cart.items.length === 0

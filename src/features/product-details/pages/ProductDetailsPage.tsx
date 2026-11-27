@@ -32,6 +32,7 @@ export function ProductDetailsPage() {
         <ErrorState
           titleAs="h1"
           title="We couldn't load this product"
+          error={error}
           onRetry={() => void refetch()}
           actions={
             <ButtonLink to="/categories" variant="secondary">

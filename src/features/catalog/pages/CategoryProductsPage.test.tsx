@@ -2,6 +2,7 @@ import { act, screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import type { CategoryResponse } from '@/features/categories'
 import { getCategory } from '@/features/categories/api/categoryApi'
+import { ApiError } from '@/shared/api/apiError'
 import type { PageResponse } from '@/shared/types/page'
 import { countH1, deferred, makeCategory, notFound, serverError } from '@/test/fixtures'
 import { makeProducts, productPage } from '@/test/products'
@@ -108,6 +109,7 @@ describe('CategoryProductsPage', () => {
     const { user } = renderPage()
 
     expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't load the products")
+    expect(screen.getByRole('alert')).toHaveTextContent("There's a problem on our side. Please try again later.")
     expect(countH1()).toBe(1)
     await user.click(screen.getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('link', { name: 'Product 1' })).toBeInTheDocument()
@@ -152,6 +154,28 @@ describe('CategoryProductsPage', () => {
 
     await act(async () => nextPage.resolve(productPage(makeProducts(21, 20), 1, 40)))
     await waitFor(() => expect(screen.getByRole('link', { name: 'Product 21' })).toHaveFocus())
+  })
+
+  it.each([
+    [serverError(), "We couldn't load more products. There's a problem on our side. Please try again later."],
+    [
+      new ApiError({ status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the server.' }),
+      "We couldn't load more products. We can't reach the server. Check your internet connection and try again.",
+    ],
+  ])('explains why "Load more" failed (%s) and keeps the retry', async (error, message) => {
+    vi.mocked(getCategory).mockResolvedValue(makeCategory())
+    vi.mocked(getProducts)
+      .mockResolvedValueOnce(productPage(makeProducts(1, 20), 0, 25))
+      .mockRejectedValueOnce(error)
+      .mockResolvedValueOnce(productPage(makeProducts(21, 5), 1, 25))
+    const { user } = renderPage()
+
+    await user.click(await screen.findByRole('button', { name: 'Load more' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    await user.click(screen.getByRole('button', { name: 'Load more' }))
+    expect(await screen.findByRole('link', { name: 'Product 25' })).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('keeps loaded items when "Load more" fails and recovers on the next attempt', async () => {

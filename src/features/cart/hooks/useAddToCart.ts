@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { isApiError } from '@/shared/api/apiError'
+import { isOutcomeUnknown } from '@/shared/api/errorCopy'
 import { addCartItem, createCart } from '../api/cartApi'
 import type { AddCartItemRequest } from '../types/cart'
 import { applyCartResponse, isCartNotFound } from './cartCache'
@@ -15,6 +16,7 @@ async function createStoredCart(queryClient: QueryClient): Promise<string> {
 /**
  * Adds a variant to the cart, creating the cart first when there is none.
  * A stale stored id (CART_NOT_FOUND) is replaced by a new cart and the add is retried once.
+ * After a conflict, or a network/timeout/server failure (the add may have been applied), the cart is reloaded.
  */
 export function useAddToCart() {
   const queryClient = useQueryClient()
@@ -33,7 +35,9 @@ export function useAddToCart() {
     },
     onSuccess: (cart) => applyCartResponse(queryClient, cart),
     onError: (error) => {
-      if (isApiError(error) && error.code === 'CART_CONFLICT') void queryClient.invalidateQueries({ queryKey: cartKeys.all })
+      if ((isApiError(error) && error.code === 'CART_CONFLICT') || isOutcomeUnknown(error)) {
+        void queryClient.invalidateQueries({ queryKey: cartKeys.all })
+      }
     },
   })
 }

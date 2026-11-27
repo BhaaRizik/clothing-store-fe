@@ -30,6 +30,7 @@ export function useCart() {
   return {
     cart: query.data ?? null,
     isLoading: query.isLoading,
+    error: query.error,
     isError: query.isError,
     isRefetchError: query.isRefetchError,
     refetch: query.refetch,

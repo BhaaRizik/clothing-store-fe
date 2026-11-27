@@ -15,6 +15,21 @@ describe('cartErrorMessage', () => {
     expect(cartErrorMessage(cartError(409, code))).toBe(message)
   })
 
+  it.each([
+    [cartError(0, 'NETWORK_ERROR'), "We can't reach the server. Check your internet connection and try again."],
+    [cartError(0, 'TIMEOUT'), 'The server took too long to respond. Please try again.'],
+    [cartError(500, 'INTERNAL_ERROR'), "There's a problem on our side. Please try again later."],
+    [cartError(503, 'SERVICE_UNAVAILABLE'), "There's a problem on our side. Please try again later."],
+  ])('explains network, timeout and server failures (%s)', (error, message) => {
+    expect(cartErrorMessage(error)).toBe(message)
+    expect(cartErrorMessage(error)).not.toBe(GENERIC_CART_ERROR)
+  })
+
+  it('keeps the generic message for other unmapped failures', () => {
+    expect(cartErrorMessage(cartError(404, 'ROUTE_NOT_FOUND'))).toBe(GENERIC_CART_ERROR)
+    expect(cartErrorMessage(cartError(0, 'UNKNOWN_ERROR'))).toBe(GENERIC_CART_ERROR)
+  })
+
   it('uses the limit from the problem details, then the cart limit', () => {
     expect(cartErrorMessage(cartError(409, 'CART_ITEM_LIMIT_EXCEEDED', { maxItemQuantity: 5 }), 10)).toBe(
       'You can have up to 5 of this item in your cart.',

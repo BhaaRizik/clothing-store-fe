@@ -1,5 +1,6 @@
 import { act, screen, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
+import { ApiError } from '@/shared/api/apiError'
 import { countH1, makeCategory, serverError } from '@/test/fixtures'
 import { renderRoute } from '@/test/renderRoute'
 import { getCategories } from '../api/categoryApi'
@@ -45,12 +46,35 @@ describe('CategoryListPage', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent("We couldn't load the categories")
+    expect(alert).toHaveTextContent("There's a problem on our side. Please try again later.")
     expect(countH1()).toBe(1)
 
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
 
     expect(await screen.findByRole('link', { name: 'Women' })).toBeInTheDocument()
     expect(getCategories).toHaveBeenCalledTimes(2)
+  })
+
+  it('tells the user the server cannot be reached when the request gets no response', async () => {
+    vi.mocked(getCategories).mockRejectedValue(new ApiError({ status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the server.' }))
+    renderPage()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent("We can't reach the server. Check your internet connection and try again.")
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeEnabled()
+  })
+
+  it.each([
+    [404, 'ROUTE_NOT_FOUND'],
+    [405, 'METHOD_NOT_ALLOWED'],
+  ])('shows the generic message for a %s %s answer', async (status, code) => {
+    vi.mocked(getCategories).mockRejectedValue(new ApiError({ status, code, message: code }))
+    renderPage()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent("We couldn't load the categories")
+    expect(alert).toHaveTextContent('Something unexpected happened. Please try again.')
+    expect(alert).not.toHaveTextContent(/connection|our side/i)
   })
 
   it('keeps the loaded categories when a background refetch fails', async () => {

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { getProducts } from '@/features/catalog/api/productApi'
 import { getCategories } from '@/features/categories/api/categoryApi'
+import { ApiError } from '@/shared/api/apiError'
 import { countH1, deferred, ils, makeCategory, serverError } from '@/test/fixtures'
 import { makeProduct, makeProducts, productPage } from '@/test/products'
 import { renderRoute } from '@/test/renderRoute'
@@ -183,6 +184,26 @@ describe('HomePage', () => {
 
     expect(await screen.findByRole('link', { name: 'Women' })).toBeInTheDocument()
     expect(getCategories).toHaveBeenCalledTimes(2)
+  })
+
+  it('explains a server failure in the categories section', async () => {
+    mockApis({ categories: serverError() })
+    renderPage()
+
+    const alert = await within(section('Shop by category')).findByRole('alert')
+    expect(alert).toHaveTextContent("We couldn't load the categories")
+    expect(alert).toHaveTextContent("There's a problem on our side. Please try again later.")
+    expect(alert).not.toHaveTextContent(/connection/i)
+  })
+
+  it('explains a network failure in the featured products section', async () => {
+    mockApis({ products: new ApiError({ status: 0, code: 'NETWORK_ERROR', message: 'Unable to reach the server.' }) })
+    renderPage()
+
+    const alert = await within(section('Featured products')).findByRole('alert')
+    expect(alert).toHaveTextContent("We couldn't load the featured products")
+    expect(alert).toHaveTextContent("We can't reach the server. Check your internet connection and try again.")
+    expect(within(alert).getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   it('shows an empty state without a call to action when there are no categories', async () => {

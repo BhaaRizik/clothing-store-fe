@@ -123,6 +123,7 @@ describe('ProductDetailsPage', () => {
 
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByRole('heading', { level: 1 })).toHaveTextContent("We couldn't load this product")
+    expect(alert).toHaveTextContent("There's a problem on our side. Please try again later.")
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('heading', { level: 1, name: 'Linen Shirt' })).toBeInTheDocument()
     expect(getProductDetails).toHaveBeenCalledTimes(2)
@@ -300,6 +301,10 @@ describe('ProductDetailsPage', () => {
       [cartError(409, 'VARIANT_UNAVAILABLE'), 'This option is no longer available.'],
       [cartError(409, 'CART_ITEM_LIMIT_EXCEEDED', { maxItemQuantity: 10 }), 'You can have up to 10 of this item in your cart.'],
       [cartError(409, 'CART_CONFLICT'), 'Your cart was updated at the same time. Please try again.'],
+      [cartError(503, 'SERVICE_UNAVAILABLE'), "There's a problem on our side. Please try again later."],
+      [cartError(500, 'INTERNAL_ERROR'), "There's a problem on our side. Please try again later."],
+      [cartError(0, 'NETWORK_ERROR'), "We can't reach the server. Check your internet connection and try again."],
+      [cartError(0, 'TIMEOUT'), 'The server took too long to respond. Please try again.'],
       [
         new ApiError({
           status: 400,
@@ -323,6 +328,25 @@ describe('ProductDetailsPage', () => {
       expect(screen.getByRole('radio', { name: 'White' })).toBeChecked()
       expect(screen.getByRole('radio', { name: 'M' })).toBeChecked()
       expect(screen.queryByText('Added to cart')).not.toBeInTheDocument()
+    })
+
+    it('replaces "Added to cart" with the error when the next add fails', async () => {
+      writeCartId(CART_ID)
+      vi.mocked(getCart).mockResolvedValue(addedCart)
+      vi.mocked(addCartItem).mockResolvedValueOnce(addedCart).mockRejectedValueOnce(cartError(503, 'SERVICE_UNAVAILABLE'))
+      const { user } = await renderReady()
+      await user.click(screen.getByRole('radio', { name: 'White' }))
+      await user.click(screen.getByRole('radio', { name: 'M' }))
+
+      await user.click(addButton())
+      expect(await screen.findByText('Added to cart')).toBeInTheDocument()
+
+      await user.click(addButton())
+
+      expect(await screen.findByRole('alert')).toHaveTextContent("There's a problem on our side. Please try again later.")
+      expect(screen.queryByText('Added to cart')).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: 'View cart' })).not.toBeInTheDocument()
+      expect(addCartItem).toHaveBeenCalledTimes(2)
     })
 
     it("shows the backend's quantity message when a first add exceeds the limit (no cart yet, so no max)", async () => {

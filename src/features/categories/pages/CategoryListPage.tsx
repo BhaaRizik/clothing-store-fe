@@ -21,12 +21,12 @@ const Intro = styled.p`
 `
 
 function CategoryListContent() {
-  const { data: categories, isError, isRefetchError, refetch } = useCategories()
+  const { data: categories, error, isError, isRefetchError, refetch } = useCategories()
 
   // Error state only when nothing was loaded; a failed background refetch keeps the content.
   if (!categories) {
     if (isError) {
-      return <ErrorState title="We couldn't load the categories" onRetry={() => void refetch()} />
+      return <ErrorState title="We couldn't load the categories" error={error} onRetry={() => void refetch()} />
     }
     return <LoadingState label="Loading categories" />
   }

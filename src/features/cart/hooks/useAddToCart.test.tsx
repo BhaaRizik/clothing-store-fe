@@ -98,6 +98,39 @@ describe('useAddToCart', () => {
     expect(readCartId()).toBe('cart-1')
   })
 
+  it.each([
+    ['a 503', cartError(503, 'SERVICE_UNAVAILABLE')],
+    ['a timeout', cartError(0, 'TIMEOUT')],
+    ['a network error', cartError(0, 'NETWORK_ERROR')],
+  ])('reloads the server-confirmed cart and reports no success after %s', async (_label, error) => {
+    writeCartId('cart-1')
+    const confirmed = makeCart({ id: 'cart-1', items: [makeCartItem()], itemCount: 2 })
+    vi.mocked(getCart).mockResolvedValueOnce(makeCart({ id: 'cart-1' })).mockResolvedValue(confirmed)
+    vi.mocked(addCartItem).mockRejectedValue(error)
+    const { result } = setup()
+    await waitFor(() => expect(getCart).toHaveBeenCalledTimes(1))
+
+    await act(() => expect(result.current.add.mutateAsync(item)).rejects.toMatchObject({ code: error.code }))
+
+    await waitFor(() => expect(getCart).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(result.current.cart.cart).toEqual(confirmed))
+    expect(result.current.add.isSuccess).toBe(false)
+    expect(result.current.add.isError).toBe(true)
+    expect(readCartId()).toBe('cart-1')
+  })
+
+  it('does not reload the cart after a business failure', async () => {
+    writeCartId('cart-1')
+    vi.mocked(getCart).mockResolvedValue(makeCart({ id: 'cart-1' }))
+    vi.mocked(addCartItem).mockRejectedValue(cartError(409, 'INSUFFICIENT_STOCK'))
+    const { result } = setup()
+    await waitFor(() => expect(getCart).toHaveBeenCalledTimes(1))
+
+    await act(() => expect(result.current.add.mutateAsync(item)).rejects.toMatchObject({ code: 'INSUFFICIENT_STOCK' }))
+
+    expect(getCart).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps the cart id and rejects with the API error for business failures', async () => {
     writeCartId('cart-1')
     vi.mocked(getCart).mockResolvedValue(makeCart({ id: 'cart-1' }))

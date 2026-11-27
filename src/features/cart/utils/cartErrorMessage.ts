@@ -1,4 +1,5 @@
 import { isApiError } from '@/shared/api/apiError'
+import { describeError, errorKind } from '@/shared/api/errorCopy'
 
 export const GENERIC_CART_ERROR = 'Something went wrong. Please try again.'
 
@@ -14,6 +15,7 @@ const asLimit = (value: unknown): number | null =>
 
 /**
  * User-facing message for a failed cart request, by the backend's stable error code.
+ * Network, timeout and server failures get the shared copy for their kind of failure.
  * `fallbackMaxQuantity` (the cart's `maxItemQuantity`) is used when the error doesn't carry the limit.
  */
 export function cartErrorMessage(error: unknown, fallbackMaxQuantity?: number | null): string {
@@ -29,5 +31,5 @@ export function cartErrorMessage(error: unknown, fallbackMaxQuantity?: number | 
   if (error.code === 'VALIDATION_ERROR') {
     return error.fieldErrors.find((fieldError) => fieldError.field === 'quantity')?.message ?? GENERIC_CART_ERROR
   }
-  return MESSAGES[error.code] ?? GENERIC_CART_ERROR
+  return MESSAGES[error.code] ?? (errorKind(error) === 'other' ? GENERIC_CART_ERROR : describeError(error).description)
 }
