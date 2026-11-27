@@ -7,12 +7,12 @@ import { ResponsiveGrid } from '@/shared/components/ui/ResponsiveGrid'
 import { HomeSection } from './HomeSection'
 
 function CategoryHighlightsContent() {
-  const { data: categories, isError, isRefetchError, refetch } = useCategories()
+  const { data: categories, error, isError, isRefetchError, refetch } = useCategories()
 
   // Error state only when nothing was loaded; a failed background refetch keeps the content.
   if (!categories) {
     if (isError) {
-      return <ErrorState titleAs="h3" title="We couldn't load the categories" onRetry={() => void refetch()} />
+      return <ErrorState titleAs="h3" title="We couldn't load the categories" error={error} onRetry={() => void refetch()} />
     }
     return <LoadingState label="Loading categories" />
   }

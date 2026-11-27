@@ -71,6 +71,7 @@ describe('CartPage', () => {
 
     const alert = await screen.findByRole('alert')
     expect(within(alert).getByRole('heading', { level: 1 })).toHaveTextContent("We couldn't load your cart")
+    expect(alert).toHaveTextContent("There's a problem on our side. Please try again later.")
     await user.click(within(alert).getByRole('button', { name: 'Try again' }))
     expect(await screen.findByRole('heading', { name: 'Linen Shirt' })).toBeInTheDocument()
     expect(getCart).toHaveBeenCalledTimes(2)
@@ -300,6 +301,60 @@ describe('CartPage', () => {
     expect(await line('Linen Shirt').findByRole('alert')).toHaveTextContent(message)
     await waitFor(() => expect(getCart).toHaveBeenCalledTimes(2))
     expect(readCartId()).toBe(CART_ID)
+  })
+
+  it.each([
+    ['an update fails with 500', serverError(), 'Increase quantity', "There's a problem on our side. Please try again later."],
+    [
+      'an update fails with 503',
+      cartError(503, 'SERVICE_UNAVAILABLE'),
+      'Increase quantity',
+      "There's a problem on our side. Please try again later.",
+    ],
+    [
+      'an update times out',
+      cartError(0, 'TIMEOUT'),
+      'Increase quantity',
+      'The server took too long to respond. Please try again.',
+    ],
+    [
+      'a removal fails with a network error',
+      cartError(0, 'NETWORK_ERROR'),
+      'Remove Linen Shirt',
+      "We can't reach the server. Check your internet connection and try again.",
+    ],
+  ])('shows the error and the server-confirmed cart when %s', async (_label, error, button, message) => {
+    const { user } = await renderLoadedCart()
+    // The server applied the change before failing: the refetch returns the confirmed quantity.
+    vi.mocked(getCart).mockResolvedValue(
+      cartWith([{ ...shirt, quantity: 3, lineTotal: ils('449.70') }, jeans], { subtotal: ils('648.70') }),
+    )
+    vi.mocked(updateCartItem).mockRejectedValue(error)
+    vi.mocked(removeCartItem).mockRejectedValue(error)
+
+    await user.click(line('Linen Shirt').getByRole('button', { name: button }))
+
+    expect(await line('Linen Shirt').findByRole('alert')).toHaveTextContent(message)
+    await waitFor(() => expect(getCart).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(line('Linen Shirt').getByRole('group', { name: /Quantity/ })).toHaveTextContent('3'))
+    expect(summary().getByText('Subtotal').nextElementSibling).toHaveTextContent('₪648.70')
+    expect(screen.getByRole('heading', { name: 'Linen Shirt' })).toBeInTheDocument()
+    expect(screen.queryByText(/updated|removed|success/i)).not.toBeInTheDocument()
+    expect(readCartId()).toBe(CART_ID)
+  })
+
+  it.each([
+    ['METHOD_NOT_ALLOWED', 405],
+    ['UNSUPPORTED_MEDIA_TYPE', 415],
+  ])('shows the generic message and does not refetch the cart when an update fails with %s', async (code, status) => {
+    const { user } = await renderLoadedCart()
+    vi.mocked(updateCartItem).mockRejectedValue(cartError(status, code))
+
+    await user.click(line('Linen Shirt').getByRole('button', { name: 'Increase quantity' }))
+
+    expect(await line('Linen Shirt').findByRole('alert')).toHaveTextContent('Something went wrong. Please try again.')
+    expect(line('Linen Shirt').getByRole('group', { name: /Quantity/ })).toHaveTextContent('2')
+    expect(getCart).toHaveBeenCalledTimes(1)
   })
 
   it('marks the line busy and ignores further clicks while an update is pending', async () => {

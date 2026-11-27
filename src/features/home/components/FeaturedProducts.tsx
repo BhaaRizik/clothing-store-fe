@@ -16,11 +16,18 @@ const Actions = styled.div`
 `
 
 function FeaturedProductsContent() {
-  const { data: products, isError, isRefetchError, refetch } = useFeaturedProducts()
+  const { data: products, error, isError, isRefetchError, refetch } = useFeaturedProducts()
 
   if (!products) {
     if (isError) {
-      return <ErrorState titleAs="h3" title="We couldn't load the featured products" onRetry={() => void refetch()} />
+      return (
+        <ErrorState
+          titleAs="h3"
+          title="We couldn't load the featured products"
+          error={error}
+          onRetry={() => void refetch()}
+        />
+      )
     }
     return <LoadingState label="Loading featured products" />
   }
