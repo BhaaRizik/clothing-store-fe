@@ -1,6 +1,6 @@
 import { AxiosError, AxiosHeaders, type AxiosResponse } from 'axios'
 import { describe, expect, it } from 'vitest'
-import { ApiError, isNotFoundError, toApiError } from './apiError'
+import { ApiError, isNotFoundError, isUnknownResourceError, toApiError } from './apiError'
 
 function axiosErrorWithResponse(status: number, data: unknown): AxiosError {
   const config = { headers: new AxiosHeaders() }
@@ -58,5 +58,35 @@ describe('toApiError', () => {
   it('maps a missing response to a network error', () => {
     const error = toApiError(new AxiosError('Network Error', 'ERR_NETWORK'))
     expect(error).toMatchObject({ status: 0, code: 'NETWORK_ERROR' })
+  })
+})
+
+describe('isUnknownResourceError', () => {
+  const invalid = (field: string) =>
+    new ApiError({
+      status: 400,
+      code: 'VALIDATION_ERROR',
+      message: 'One or more request parameters are invalid.',
+      fieldErrors: [{ field, message: 'must be a lowercase kebab-case slug of at most 200 characters' }],
+    })
+
+  it('treats a 404 as an unknown resource', () => {
+    expect(isUnknownResourceError(new ApiError({ status: 404, code: 'PRODUCT_NOT_FOUND', message: 'x' }))).toBe(true)
+  })
+
+  it('treats a 400 VALIDATION_ERROR on the slug as an unknown resource', () => {
+    expect(isUnknownResourceError(invalid('slug'))).toBe(true)
+  })
+
+  it('checks the given fields instead of slug when provided', () => {
+    expect(isUnknownResourceError(invalid('category'), ['category'])).toBe(true)
+    expect(isUnknownResourceError(invalid('slug'), ['category'])).toBe(false)
+  })
+
+  it('does not treat validation errors on other fields, other 400s or other failures as unknown resources', () => {
+    expect(isUnknownResourceError(invalid('page'))).toBe(false)
+    expect(isUnknownResourceError(new ApiError({ status: 400, code: 'HTTP_400', message: 'x', fieldErrors: [{ field: 'slug', message: 'x' }] }))).toBe(false)
+    expect(isUnknownResourceError(new ApiError({ status: 500, code: 'INTERNAL_ERROR', message: 'x' }))).toBe(false)
+    expect(isUnknownResourceError(new Error('boom'))).toBe(false)
   })
 })

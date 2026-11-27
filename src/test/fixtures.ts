@@ -18,6 +18,15 @@ export function makeCategory(overrides: Partial<CategoryResponse> = {}): Categor
 
 export const notFound = (code: string) => new ApiError({ status: 404, code, message: 'Not found' })
 
+/** The backend's 400 for a malformed slug (e.g. `/products/Bad_Slug`), rejected on `field`. */
+export const invalidSlug = (field = 'slug') =>
+  new ApiError({
+    status: 400,
+    code: 'VALIDATION_ERROR',
+    message: 'One or more request parameters are invalid.',
+    fieldErrors: [{ field, message: 'must be a lowercase kebab-case slug of at most 200 characters' }],
+  })
+
 export const serverError = () => new ApiError({ status: 500, code: 'HTTP_500', message: 'Server error' })
 
 /** Counts h1 elements in the rendered document (one per screen is required). */

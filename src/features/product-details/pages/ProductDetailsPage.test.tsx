@@ -4,7 +4,7 @@ import { addCartItem, createCart, getCart } from '@/features/cart/api/cartApi'
 import { writeCartId } from '@/features/cart/utils/cartIdStorage'
 import { CART_ID, cartError, makeCart, makeCartItem } from '@/test/cart'
 import { ApiError } from '@/shared/api/apiError'
-import { countH1, deferred, ils, notFound, serverError } from '@/test/fixtures'
+import { countH1, deferred, ils, invalidSlug, notFound, serverError } from '@/test/fixtures'
 import { renderRoute } from '@/test/renderRoute'
 import { variant } from '@/test/variants'
 import { getProductDetails } from '../api/productDetailsApi'
@@ -114,6 +114,15 @@ describe('ProductDetailsPage', () => {
 
     expect(await screen.findByRole('heading', { level: 1, name: 'Product not found' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Browse categories' })).toHaveAttribute('href', '/categories')
+    expect(countH1()).toBe(1)
+  })
+
+  it('shows the not-found state for a malformed slug the backend rejects with 400', async () => {
+    vi.mocked(getProductDetails).mockRejectedValue(invalidSlug())
+    renderPage('Bad_Slug')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Product not found' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
     expect(countH1()).toBe(1)
   })
 

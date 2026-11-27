@@ -4,7 +4,7 @@ import type { CategoryResponse } from '@/features/categories'
 import { getCategory } from '@/features/categories/api/categoryApi'
 import { ApiError } from '@/shared/api/apiError'
 import type { PageResponse } from '@/shared/types/page'
-import { countH1, deferred, makeCategory, notFound, serverError } from '@/test/fixtures'
+import { countH1, deferred, invalidSlug, makeCategory, notFound, serverError } from '@/test/fixtures'
 import { makeProducts, productPage } from '@/test/products'
 import { renderRoute } from '@/test/renderRoute'
 import { getProducts } from '../api/productApi'
@@ -83,6 +83,33 @@ describe('CategoryProductsPage', () => {
     expect(screen.getByRole('link', { name: 'Browse all categories' })).toHaveAttribute('href', '/categories')
     expect(getProducts).not.toHaveBeenCalled()
     expect(countH1()).toBe(1)
+  })
+
+  it('shows the not-found state for a malformed category slug the backend rejects with 400', async () => {
+    vi.mocked(getCategory).mockRejectedValue(invalidSlug())
+    renderPage('Bad_Slug')
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Category not found' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(getProducts).not.toHaveBeenCalled()
+    expect(countH1()).toBe(1)
+  })
+
+  it('shows the not-found state when the product list rejects the category filter with 400', async () => {
+    vi.mocked(getCategory).mockResolvedValue(makeCategory())
+    vi.mocked(getProducts).mockRejectedValue(invalidSlug('category'))
+    renderPage()
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Category not found' })).toBeInTheDocument()
+  })
+
+  it('shows an error, not "not found", when the product list rejects another parameter with 400', async () => {
+    vi.mocked(getCategory).mockResolvedValue(makeCategory())
+    vi.mocked(getProducts).mockRejectedValue(invalidSlug('page'))
+    renderPage()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent("We couldn't load the products")
+    expect(screen.queryByRole('heading', { name: 'Category not found' })).not.toBeInTheDocument()
   })
 
   it('shows an error when the category request fails, then recovers on retry', async () => {
